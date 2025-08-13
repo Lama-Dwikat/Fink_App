@@ -272,8 +272,8 @@ class MainActivity : ComponentActivity() {
 
 
             if (searching){
-                searchProcess( view)
                 view.processSearchValue()
+                searchProcess( view)
         }
 
 
@@ -389,7 +389,6 @@ Box(                     modifier = Modifier.border(60.dp, Color.Gray)){
   }
 
 
-@Preview(showBackground = true)
 
 @Composable
 fun searchHelpText():String {
