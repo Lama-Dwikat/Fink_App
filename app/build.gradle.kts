@@ -80,6 +80,18 @@ dependencies {
     implementation("androidx.compose.runtime:runtime:1.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
 
+    //for the navigation
+
+    implementation("androidx.navigation:navigation-compose:2.8.0")
+
+
+    //for aladin sky lite
+
+    implementation ("androidx.webkit:webkit:1.8.0")
+
+
+
+
 
 
 

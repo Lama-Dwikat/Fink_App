@@ -73,11 +73,13 @@ data class conesearchResponse(
 }
 
 data class classRequest(
+    @SerializedName("class")
     val className:String
 )
 
 data class anomalyRequest(
-    val n:Int =100       //n=number of alerts
+
+    val n:Int=10           //n=number of alerts
 )
 
 data class imageRequest(

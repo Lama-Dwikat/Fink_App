@@ -1,7 +1,6 @@
 package com.example.test.ui.theme
 import okhttp3.ResponseBody
 import retrofit2.http.Body
-import retrofit2.http.Headers
 import retrofit2.http.*
 
 interface FinkApi {

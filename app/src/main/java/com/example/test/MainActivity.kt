@@ -2,9 +2,10 @@ package com.example.test
 
 import android.os.Bundle
 import android.util.Log
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,76 +14,59 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.example.test.ui.theme.TestViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.ui.focus.onFocusChanged
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.withContext
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.*
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Popup
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.test.ui.theme.TestViewModel
+import com.example.test.ui.theme.type
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             val view: TestViewModel = viewModel()
-
             searchBar(view)
-
+           // SkyMapScreen()
 
 
         }
@@ -99,9 +83,12 @@ class MainActivity : ComponentActivity() {
     var expandHistory by remember { mutableStateOf(false) }
     var searchHistory = remember { mutableStateListOf<String>() }
      var showText by remember { mutableStateOf(false) }
-    var searching by remember { mutableStateOf(false) }
+    var searchClicked by remember { mutableStateOf(false) }
      val screenHeight = LocalConfiguration.current.screenHeightDp.dp
      val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+     var showImage by remember { mutableStateOf(true)}
+     var iconStatus by remember { mutableStateOf(false)}
+
 
      val dynamicOffset = screenHeight *0.9f
 
@@ -128,34 +115,71 @@ class MainActivity : ComponentActivity() {
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(top=screenHeight * 0.185f)
-
-                .verticalScroll(rememberScrollState())
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(top=screenHeight * 0.13f)
 
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.logo),
-                contentDescription = "Logo",
-                modifier = Modifier.width(220.dp).height(150.dp)
-            )
-
-
-            Row {
-                Text(text = "Quick Fields : ", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    text = "Class ",
-                    fontSize = 11.sp,
-                    color = Color.Blue,
-                    modifier = Modifier.clickable { expandClass = true ;  view.setSearchValue("class= ")
-                    }
+            if(showImage) {
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Logo",
+                    modifier = Modifier.width(250.dp).height(180.dp)
                 )
-                Text(text = "Trend  ", fontSize = 11.sp, color = Color.Blue)
-                Text(text = "Last ", fontSize = 11.sp, color = Color.Blue)
-                Text(text = "Radius ", fontSize = 11.sp, color = Color.Blue)
-                Text(text = "After ", fontSize = 11.sp, color = Color.Blue)
-                Text(text = "Before ", fontSize = 11.sp, color = Color.Blue)
-                Text(text = "Window ", fontSize = 11.sp, color = Color.Blue)
             }
+
+            var paint = if (iconStatus)
+                painterResource(R.drawable.image_icon)
+                else painterResource(R.drawable.table_icon)
+
+Row(horizontalArrangement = Arrangement.End ,  modifier=Modifier.fillMaxWidth()
+) {
+    Image(
+        painter = paint,
+        contentDescription = "Icon to select the result view",
+        modifier = Modifier.clickable { iconStatus = !iconStatus }.size(45.dp)
+    )
+}
+            Row (    verticalAlignment = Alignment.CenterVertically) {
+
+                    Text(text = "Quick Fields : ", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+
+                    Text(
+                        text = "Class ",
+                        fontSize = 12.sp,
+                        color = Color.Blue,
+                        modifier = Modifier.clickable {
+                            expandClass = true; view.setSearchValue("class= ")
+                        }
+                    )
+                Spacer(modifier = Modifier.size(3.dp))
+
+                    Text(text = "Trend  ", fontSize = 12.sp, color = Color.Blue)
+                    Spacer(modifier = Modifier.size(3.dp))
+
+                    Text(text = "Last ", fontSize = 12.sp, color = Color.Blue)
+
+
+                Spacer(modifier = Modifier.size(3.dp))
+
+                    Text(text = "Radius ", fontSize = 12.sp, color = Color.Blue)
+                    Spacer(modifier = Modifier.size(3.dp))
+
+                    Text(text = "After ", fontSize = 12.sp, color = Color.Blue)
+                    Spacer(modifier = Modifier.size(3.dp))
+
+                    Text(text = "Before ", fontSize = 12.sp, color = Color.Blue)
+
+                    Spacer(modifier = Modifier.size(3.dp))
+
+                    Text(text = "Window ", fontSize = 12.sp, color = Color.Blue)
+
+
+                }
+
+
+
+            Spacer(modifier = Modifier.size(6.dp))
+
+
 
                 TextField(
                     value = searchedValue,
@@ -207,7 +231,7 @@ class MainActivity : ComponentActivity() {
                                             if(searchHistory.contains(searchedValue)){
                                         searchHistory.remove(searchedValue)}
                                         searchHistory.add(0,searchedValue);
-                                        searching=true
+                                        searchClicked=true
                                         view.setSearchValue(searchedValue)
                                     }
                             )
@@ -271,9 +295,12 @@ class MainActivity : ComponentActivity() {
             }
 
 
-            if (searching){
+            if (searchClicked){
+                showImage=false
                 view.processSearchValue()
-                searchProcess( view)
+                if(iconStatus)
+                    secondResultView(view)
+           else     firstResultView( view)
         }
 
 
@@ -288,16 +315,12 @@ Box(                     modifier = Modifier.border(60.dp, Color.Gray)){
                 )
        {
            Box(modifier = Modifier.background(Color.White).height(400.dp).width(300.dp).verticalScroll(rememberScrollState()).padding(screenWidth*0.05f)
-
-
-
                , contentAlignment = Alignment.Center) {
-            if( searchHelpText().isNotEmpty()){
-                view.setSearchValue(searchHelpText())
-                showText=false
+
+               if( searchHelpText(view)){
+               showText=false
             }
-//               , modifier = Modifier.fillMaxSize(), // fill space so alignment can take effect
-//                   textAlign = TextAlign.Start)
+
            }
        }
             }}
@@ -307,17 +330,7 @@ Box(                     modifier = Modifier.border(60.dp, Color.Gray)){
 
 
 
-
-
-
-
-
         }
-
-
-
-
-
 
 
             }
@@ -329,12 +342,19 @@ Box(                     modifier = Modifier.border(60.dp, Color.Gray)){
 
 
   @Composable
-  fun searchProcess(view:TestViewModel) {
+  fun firstResultView(view:TestViewModel) {
       val cone by view.Conesearch.collectAsState()
+      val obj by view.Objects.collectAsState()
+      val typ by view.searchedType.collectAsState()
+      val img by view.bitmap.collectAsState()
 
-      Text("Cone search with center at 246.0422 25.669 and radius 30.0 arcsec - 1 objects found")
-      Box(
-          modifier = Modifier.heightIn(max = 320.dp).width(330.dp).border(2.5.dp, Color.Gray),
+
+
+      //This is for conesearch
+        if (typ== type.Coordinate){
+
+            Box(
+          modifier = Modifier.heightIn(max = 360.dp).width(330.dp).border(1.dp, Color(0xFFC9C9C9)),
           contentAlignment = Alignment.TopCenter
       ) {
           Column(modifier = Modifier.horizontalScroll(rememberScrollState())) {
@@ -349,9 +369,9 @@ Box(                     modifier = Modifier.border(60.dp, Color.Gray)){
                   ).forEach { title ->
                       Box(
                           modifier = Modifier.border(
-                              1.dp, Color.Gray
+                              1.dp, Color(0xFFC9C9C9)
                           ).width(135.dp).height(30.dp)
-                              .background(Color(0xFFBFBFBF)), contentAlignment = Alignment.Center
+                              .background(Color(0xFFD3D3D3)), contentAlignment = Alignment.Center
                       ) {
                           Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                       }
@@ -371,8 +391,9 @@ Box(                     modifier = Modifier.border(60.dp, Color.Gray)){
                               co.timeVariation
                           ).forEach { title ->
                               Box(
-                                  modifier = Modifier.border(1.dp, Color.Gray).width(135.dp)
-                                      .height(30.dp)
+                                  modifier = Modifier
+                                      //.border(1.dp, Color.Gray)
+                                      .width(135.dp).height(30.dp)
                                       .background(Color.White), contentAlignment = Alignment.Center
                               ) {
                                   Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -384,14 +405,89 @@ Box(                     modifier = Modifier.border(60.dp, Color.Gray)){
                   }
               }
           }
-      }
+      }}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//this is for objects
+      else if (typ==type.Object || typ==type.Class || typ==type.Anomaly) {
 
+            Box(
+        modifier = Modifier.heightIn(max = 360.dp).width(330.dp).border(1.dp, Color(0xFFC9C9C9)),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+
+            Row {
+                listOf(
+                    "Object Id",
+                    "Dec",
+                    "Ra",
+                    "Last Date",
+                    "Classification",
+                    "Number of Measurements",
+                    "Time Variation"
+                ).forEach { title ->
+                    Box(
+                        modifier = Modifier
+                            .border(
+                            1.dp,Color(0xFFC9C9C9)
+                        )
+                            .width(135.dp).height(30.dp)
+                            .background(Color(0xFFD3D3D3)), contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+
+            }
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+
+                obj.forEach { ob ->
+                    Row {
+                        listOf(
+                            ob.objectId,
+                            ob.dec.toString(),
+                            ob.ra.toString(),
+                            ob.lastDate,
+                            ob.classification,
+                            ob.numberOfMeasurments.toString(),
+                            ob.timeVariation.toString(),
+                        ).forEachIndexed { index,title ->
+                            Box(
+                                modifier = Modifier.width(135.dp)
+//                                    .border(1.dp,Color(0xFFE0E0E0))
+                                    .height(30.dp)
+                                    .background(Color.White) .then(
+                                        if(index==0) Modifier.clickable{
+
+                                        }else Modifier),
+
+                             contentAlignment = Alignment.Center){
+                                Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color=if(index==0) Color.Blue else Color.Black)
+                            }
+
+
+
+                        }
+
+                    }
+                }
+            }
+        }
+
+
+    }
+
+}
   }
 
 
 
+
+
+
 @Composable
-fun searchHelpText():String {
+fun searchHelpText(view:TestViewModel): Boolean {
     var value by remember {mutableStateOf("")}
 
         Column {
@@ -418,7 +514,7 @@ fun searchHelpText():String {
                 Text(
                     "ZTF21abfmbix ",
                     color = Color.Magenta,
-                    modifier = Modifier.clickable { })
+                    modifier = Modifier.clickable { value="ZTF21abfmbix"})
                 Text("- search for exact ZTF object")
             }
 
@@ -496,7 +592,7 @@ fun searchHelpText():String {
                 Text("- search within 30 arcseconds around RA=246.0422 deg Dec=25.669 deg")
             }
             Row {
-                Text("246.0422 25.669 30 after=\"2023-03-29 13:36:52\" window=10",color = Color.Magenta ,modifier=Modifier.clickable { value="246.0422 25.669 30 after=\"2023-03-29 13:36:52\" window=10" })
+                Text("246.0422 25.669 30 after=2023-03-29 13:36:52 window=10",color = Color.Magenta ,modifier=Modifier.clickable { value="246.0422 25.669 30 after=2023-03-29 13:36:52 window=10" })
                 Text("- the same but also within 10 days since specified time moment")
             }
             Row {
@@ -551,7 +647,7 @@ fun searchHelpText():String {
                         Text("2017AD19 , ",color = Color.Magenta ,modifier=Modifier.clickable { value="2017AD19" })
                         Text("2012XK111",color = Color.Magenta ,modifier=Modifier.clickable { value="2012XK111" })
                     }
-                    "Comets by number\n" +
+                   Text( "Comets by number\n" )
                             Row {
                                 Text("10P , ",color = Color.Magenta ,modifier=Modifier.clickable { value="10P" })
                                 Text("249P , ",color = Color.Magenta ,modifier=Modifier.clickable { value="249P" })
@@ -601,7 +697,167 @@ fun searchHelpText():String {
 
 
                 }
-    return value
+
+    if( value.isNotEmpty()){
+        view.setSearchValue(value)
+        Log.d("search value",value)
+        return true
+    }
+    else return false
             }
 
 
+
+
+
+@Composable
+fun AladinLiteWebView() {
+    AndroidView(factory = { context ->
+        WebView(context).apply {
+            settings.javaScriptEnabled = true
+            webViewClient = WebViewClient()
+            loadUrl("https://aladin.cds.unistra.fr/AladinLite/")
+        }
+    })
+}
+
+
+
+@Composable
+fun secondResultView(view: TestViewModel){
+    val cone by view.Conesearch.collectAsState()
+    val obj by view.Objects.collectAsState()
+    val typ by view.searchedType.collectAsState()
+    val img by view.bitmap.collectAsState()
+
+    //This is for conesearch
+    if (typ== type.Coordinate) {
+       cone.forEach {
+        Box(
+            modifier = Modifier.heightIn(max = 360.dp).width(330.dp)
+                .border(1.dp, Color(0xFFC9C9C9)),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Row {
+                img?.let { bitmap ->
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = "Object Science Image",
+                        modifier = Modifier.width(30.dp).height(30.dp)
+                    )
+                }
+
+                Column {
+                    Row {
+
+                    }
+                }
+
+
+            }
+
+        }
+       }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//this is for objects
+    else if (typ==type.Object || typ==type.Class || typ==type.Anomaly) {
+
+        Box(
+            modifier = Modifier.heightIn(max = 360.dp).width(330.dp)
+                .border(1.dp, Color(0xFFC9C9C9)),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            obj.forEach {
+                Row {
+                    img?.let { bitmap ->
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Object Science Image",
+                            modifier = Modifier.width(30.dp).height(30.dp)
+                        )
+                    }
+
+                    Column {
+                        Row {
+                            Box {
+                                obj
+                            }
+
+                        }
+                    }
+
+                }
+
+            }
+        }
+    }
+
+
+
+}
+
+
+
+
+
+
+@Composable
+fun SkyMapScreen() {
+    val ra = 270.925
+    val dec = -23.01
+    val fov = 1.5
+
+    val htmlContent = """
+        <html>
+          <head>
+            <link rel="stylesheet" href="https://aladin.u-strasbg.fr/AladinLite/api/v2/latest/aladin.min.css"/>
+            <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
+            <script src="https://aladin.u-strasbg.fr/AladinLite/api/v2/latest/aladin.min.js"></script>
+          </head>
+          <body style="margin:0; padding:0;">
+            <div id="aladin-lite-div" style="width:100%; height:100vh;"></div>
+            <script>
+              var aladin = A.aladin('#aladin-lite-div', {
+                survey: "P/DSS2/color",
+                fov: $fov,
+                target: "$ra $dec"
+              });
+            </script>
+          </body>
+        </html>
+    """.trimIndent()
+
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { context ->
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                webViewClient = WebViewClient() // Important!
+                loadDataWithBaseURL(
+                    "https://aladin.u-strasbg.fr/",
+                    htmlContent,
+                    "text/html",
+                    "utf-8",
+                    null
+                )
+            }
+        }
+    )
+}
