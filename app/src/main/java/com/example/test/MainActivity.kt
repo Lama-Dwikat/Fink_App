@@ -6,6 +6,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -45,13 +47,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -59,6 +66,8 @@ import androidx.compose.ui.window.Popup
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.test.ui.theme.TestViewModel
 import com.example.test.ui.theme.type
+import kotlin.text.toFloatOrNull
+import kotlin.text.toIntOrNull
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -341,145 +350,126 @@ Box(                     modifier = Modifier.border(60.dp, Color.Gray)){
 
 
 
-  @Composable
-  fun firstResultView(view:TestViewModel) {
-      val cone by view.Conesearch.collectAsState()
-      val obj by view.Objects.collectAsState()
-      val typ by view.searchedType.collectAsState()
-      val img by view.bitmap.collectAsState()
 
 
 
-      //This is for conesearch
-        if (typ== type.Coordinate){
+@Composable
+fun firstResultView(view: TestViewModel) {
+    val obj by view.Objects.collectAsState()
+    val cone by view.Conesearch.collectAsState()
+    val typ by view.searchedType.collectAsState()
 
-            Box(
-          modifier = Modifier.heightIn(max = 360.dp).width(330.dp).border(1.dp, Color(0xFFC9C9C9)),
-          contentAlignment = Alignment.TopCenter
-      ) {
-          Column(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-
-              Row {
-                  listOf(
-                      "Object Id",
-                      "Separation",
-                      "Classification",
-                      "Number of Measurements",
-                      "Time Variation"
-                  ).forEach { title ->
-                      Box(
-                          modifier = Modifier.border(
-                              1.dp, Color(0xFFC9C9C9)
-                          ).width(135.dp).height(30.dp)
-                              .background(Color(0xFFD3D3D3)), contentAlignment = Alignment.Center
-                      ) {
-                          Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                      }
-                  }
+    val headers: List<String>
+    val raws: List<List<String>>
 
 
-              }
-              Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+    when (typ) {
+        type.Coordinate -> {
+            headers = listOf(
+                "Object Id",
+                "Separation",
+                "Classification",
+                "Number of Measurements",
+                "Time Variation"
+            )
+            raws = cone.map { value ->
+                listOf(
+                    value.objectId,
+                    "${value.separation}",
+                    value.calssification,
+                    "${value.numberOfMeasurments}",
+                    "${value.timeVariation}"
+                )
+            }
+        }
 
-                  cone.forEach { co ->
-                      Row {
-                          listOf(
-                              co.objectId,
-                              co.separation.toString(),
-                              co.calssification,
-                              co.numberOfMeasurments.toString(),
-                              co.timeVariation
-                          ).forEach { title ->
-                              Box(
-                                  modifier = Modifier
-                                      //.border(1.dp, Color.Gray)
-                                      .width(135.dp).height(30.dp)
-                                      .background(Color.White), contentAlignment = Alignment.Center
-                              ) {
-                                  Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                              }
-                          }
+        type.Object, type.Class, type.Anomaly -> {
+            headers = listOf(
+                "Object Id",
+                "Dec",
+                "Ra",
+                "Last Date",
+                "Classification",
+                "Number of Measurements",
+                "Time Variation"
+            )
+            raws = obj.map { value ->
+                listOf(
+                    value.objectId,
+                    "${value.dec}",
+                    "${value.ra}",
+                    value.lastDate,
+                    value.classification,
+                    "${value.numberOfMeasurments}",
+                    "${value.timeVariation}"
+                )
+            }
 
+        }
+       else->{
+           headers=emptyList()
+           raws=emptyList()
+       }
+       }
 
-                      }
-                  }
-              }
-          }
-      }}
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
-//this is for objects
-      else if (typ==type.Object || typ==type.Class || typ==type.Anomaly) {
+  if(headers.isNotEmpty() && raws.isNotEmpty())
+    table(headers,raws)
 
-            Box(
-        modifier = Modifier.heightIn(max = 360.dp).width(330.dp).border(1.dp, Color(0xFFC9C9C9)),
-        contentAlignment = Alignment.TopCenter
+    }
+
+@Composable
+fun table(headers:List<String> , raws:List<List<String>>) {
+    Box(
+        modifier = Modifier.heightIn(max = 360.dp).width(330.dp).border(1.dp, Color(0xFFC9C9C9)) ,
+            contentAlignment = Alignment.TopCenter
     ) {
         Column(modifier = Modifier.horizontalScroll(rememberScrollState())) {
 
             Row {
-                listOf(
-                    "Object Id",
-                    "Dec",
-                    "Ra",
-                    "Last Date",
-                    "Classification",
-                    "Number of Measurements",
-                    "Time Variation"
-                ).forEach { title ->
+                headers.forEach { title ->
                     Box(
-                        modifier = Modifier
-                            .border(
-                            1.dp,Color(0xFFC9C9C9)
-                        )
-                            .width(135.dp).height(30.dp)
+                        modifier = Modifier.border(
+                            1.dp, Color(0xFFC9C9C9)
+                        ).width(135.dp).height(30.dp)
                             .background(Color(0xFFD3D3D3)), contentAlignment = Alignment.Center
                     ) {
                         Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Log.d("headers values",title)
                     }
                 }
 
 
             }
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
 
-                obj.forEach { ob ->
-                    Row {
-                        listOf(
-                            ob.objectId,
-                            ob.dec.toString(),
-                            ob.ra.toString(),
-                            ob.lastDate,
-                            ob.classification,
-                            ob.numberOfMeasurments.toString(),
-                            ob.timeVariation.toString(),
-                        ).forEachIndexed { index,title ->
-                            Box(
-                                modifier = Modifier.width(135.dp)
-//                                    .border(1.dp,Color(0xFFE0E0E0))
-                                    .height(30.dp)
-                                    .background(Color.White) .then(
-                                        if(index==0) Modifier.clickable{
-
-                                        }else Modifier),
-
-                             contentAlignment = Alignment.Center){
-                                Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color=if(index==0) Color.Blue else Color.Black)
-                            }
+            raws.forEach { raw ->
+                Row {
+                    raw.forEachIndexed { index, value ->
+                        Box(
+                            modifier = Modifier
+                                //.border(1.dp, Color.Gray)
+                                .width(135.dp).height(30.dp)
+                                .background(Color.White)
+                                .then (if (index==0) Modifier.clickable{} else Modifier)
+                            , contentAlignment = Alignment.Center
 
 
-
+                        ) {
+                            Text(text = value, fontSize = 11.sp, fontWeight = FontWeight.Bold, color= if (index==0) Color.Blue else Color.Black)
                         }
-
                     }
+
+
                 }
+
             }
+
         }
 
 
     }
-
 }
-  }
+
+
 
 
 
@@ -723,41 +713,6 @@ fun AladinLiteWebView() {
 
 
 
-@Composable
-fun secondResultView(view: TestViewModel){
-    val cone by view.Conesearch.collectAsState()
-    val obj by view.Objects.collectAsState()
-    val typ by view.searchedType.collectAsState()
-    val img by view.bitmap.collectAsState()
-
-    //This is for conesearch
-    if (typ== type.Coordinate) {
-       cone.forEach {
-        Box(
-            modifier = Modifier.heightIn(max = 360.dp).width(330.dp)
-                .border(1.dp, Color(0xFFC9C9C9)),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            Row {
-                img?.let { bitmap ->
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = "Object Science Image",
-                        modifier = Modifier.width(30.dp).height(30.dp)
-                    )
-                }
-
-                Column {
-                    Row {
-
-                    }
-                }
-
-
-            }
-
-        }
-       }
 
 
 
@@ -774,44 +729,6 @@ fun secondResultView(view: TestViewModel){
 
 
 
-    }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
-//this is for objects
-    else if (typ==type.Object || typ==type.Class || typ==type.Anomaly) {
-
-        Box(
-            modifier = Modifier.heightIn(max = 360.dp).width(330.dp)
-                .border(1.dp, Color(0xFFC9C9C9)),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            obj.forEach {
-                Row {
-                    img?.let { bitmap ->
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = "Object Science Image",
-                            modifier = Modifier.width(30.dp).height(30.dp)
-                        )
-                    }
-
-                    Column {
-                        Row {
-                            Box {
-                                obj
-                            }
-
-                        }
-                    }
-
-                }
-
-            }
-        }
-    }
-
-
-
-}
 
 
 
@@ -861,3 +778,239 @@ fun SkyMapScreen() {
         }
     )
 }
+
+
+
+
+
+@Composable
+fun secondResultView( view: TestViewModel) {
+    val cone by view.Conesearch.collectAsState()
+    val obj by view.Objects.collectAsState()
+    val typ by view.searchedType.collectAsState()
+    val img by view.bitmap.collectAsState()
+
+
+    val verticalScrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .heightIn(max = 300.dp)
+            .verticalScroll(verticalScrollState)
+            .background(Color.White)
+            .border(1.dp, Color.LightGray)
+    ) {
+        obj.forEachIndexed { index, value ->
+
+            var expanded by remember { mutableStateOf(false) }
+
+            val objectId = value.objectId
+
+
+            val points = obj.mapNotNull { valuesMap ->
+                val diffMag = valuesMap.magnitudeDifference.toFloat()
+                val calcJd = valuesMap.calculatedJd.toFloat()
+                val fid = valuesMap.fid
+
+                if (diffMag != null && calcJd != null && fid != null) {
+                    Triple(calcJd, diffMag, fid)
+                } else null
+            }
+
+
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    //.padding(vertical = 8.dp)
+                    .border(1.dp, Color.LightGray)
+                    .padding(8.dp)
+            ) {
+                // Object ID
+                // Object ID
+                Text(
+                    text = objectId,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Image on the left
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .border(1.dp, Color.Gray)
+                    ) {
+                        img?.let { bitmap ->
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = "Cutout Image",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    // ✅ Data on the right
+                    Column(modifier = Modifier.weight(1f)) {
+                        val measurements = value.numberOfMeasurments
+                        val lapseRaw = value.timeVariation
+                        val lapse = lapseRaw?.let { String.format("%.1f", it) } ?: lapseRaw
+
+                        Text(
+                            buildAnnotatedString {
+                                withStyle(style = SpanStyle(color = Color.Magenta)) {
+                                    append(measurements.toString())
+                                }
+                                append(" detection(s) in ")
+                                withStyle(style = SpanStyle(color = Color.Magenta)) {
+                                    append(lapse.toString())
+                                }
+                                append(" days")
+                            },
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+
+                        // First alert
+                        Row {
+                            Text("First: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                            Text(value.firstDate, fontSize = 10.sp, color = Color.Magenta)
+                        }
+
+                        // Last alert
+                        Row {
+                            Text("Last: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                            Text(value.lastDate, fontSize = 10.sp, color = Color.Magenta)
+                        }
+
+                        // Equatorial coordinates
+                        Row {
+                            Text("Equ: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                            Text(value.equ, fontSize = 10.sp, color = Color.Magenta)
+                        }
+
+                        // Galactic coordinates
+                        val galacticRaw = value.gal
+                        val galacticFormatted = galacticRaw.toString()
+                            .replace("(", "")
+                            .replace(")", "")
+                            .split(",")
+                            .map { it.trim() }
+                            .mapNotNull { part ->
+                                part.toDoubleOrNull()?.let { String.format("%.4f", it) }
+                            }
+                            .take(2)
+                            .joinToString(" ")
+
+                        Row {
+                            Text("Gal: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                            Text(
+                                if (galacticFormatted.isNotEmpty()) galacticFormatted else galacticRaw.toString(),
+                                fontSize = 10.sp,
+                                color = Color.Magenta
+                            )
+                        }
+
+                        // RealBogus score
+                        Row {
+                            Text("RealBogus: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                            Text(
+                                value.RealBogus.toString(),
+                                fontSize = 10.sp,
+                                color = Color.Magenta
+                            )
+                        }
+                    }
+                }
+
+
+                // ✅ Only toggle the plot
+                Text(
+                    text = if (expanded) "See Less" else "See More",
+                    color = Color.Blue,
+                    fontSize = 10.sp,
+                    modifier = Modifier
+                        .padding(top = 6.dp)
+                        .clickable { expanded = !expanded }
+                )
+
+                if (expanded) {
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    LightCurvePlot(
+                        points = points,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+
+                }
+            }
+        }
+    }
+
+
+}
+@Composable
+fun LightCurvePlot(
+    points: List<Triple<Float, Float, Int>>,  // x, y, fid
+    modifier: Modifier = Modifier
+) {
+    if (points.isEmpty()) {
+        Text("No light curve data available", modifier = modifier.padding(8.dp))
+        return
+    }
+
+    val sortedPoints = points.sortedBy { it.first } // sort by JD (x-axis)
+
+    val minX = sortedPoints.minOf { it.first }
+    val maxX = sortedPoints.maxOf { it.first }
+    val minY = sortedPoints.minOf { it.second }
+    val maxY = sortedPoints.maxOf { it.second }
+
+    Canvas(modifier = modifier
+        .height(180.dp)
+        .background(Color(0xFFD3D3D3))
+    ) {
+        val canvasWidth = size.width
+        val canvasHeight = size.height
+        val leftPadding = 60f
+        val bottomPadding = 30f
+        val topPadding = 15f
+
+        // Draw axes, gridlines (same as before)...
+
+        // Draw points with color by fid
+        sortedPoints.forEach { (xVal, yVal, fid) ->
+            val x = leftPadding + (xVal - minX) / (maxX - minX) * (canvasWidth - leftPadding - 10f)
+            val y = topPadding + (yVal - minY) / (maxY - minY) * (canvasHeight - topPadding - bottomPadding)
+
+            val pointColor = when (fid) {
+                1 -> Color(0xFF1D1B70) // blue
+                2 -> Color(0xFFFF7F50) // orange
+                else -> Color.Gray
+            }
+
+            drawCircle(
+                color = pointColor,
+                center = Offset(x, y),
+                radius = 6f
+            )
+        }
+
+        // Draw axis labels (same as before)...
+    }
+}
+
+
+
+
+
