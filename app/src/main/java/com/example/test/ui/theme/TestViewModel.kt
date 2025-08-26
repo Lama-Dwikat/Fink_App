@@ -26,7 +26,11 @@ class TestViewModel: ViewModel() {
 
         try {
             val request = objectRequest(objectId)
-            _Objects.value = RetrofitObject.api.postObject(request)
+            val result = RetrofitObject.api.postObject(request)
+            _Objects.value = result
+             result.forEach { obj->
+                    fetchImage(obj.objectId,"Science")
+                }
         }
         catch (e:Exception){
         println("Error while fetching objects")}
@@ -44,7 +48,12 @@ class TestViewModel: ViewModel() {
         viewModelScope.launch {
             try{
                 val request=conesearchRequest(ra,dec,radius)
-                _Conesearch.value= RetrofitObject.api.postConesearch(request)
+              val result = RetrofitObject.api.postConesearch(request)
+                _Conesearch.value=result
+                result.forEach { obj->
+                    fetchImage(obj.objectId,"Science")
+                }
+
             }
             catch(e:Exception){
                 println("Error while fetching conesearch")
@@ -61,7 +70,11 @@ class TestViewModel: ViewModel() {
                 val request = classRequest(className)
                 Log.d("before fetch the class",request.toString())
 
-                _Objects.value = RetrofitObject.api.postClasses(request)
+                val result = RetrofitObject.api.postClasses(request)
+                _Objects.value=result
+                result.forEach { obj->
+                    fetchImage(obj.objectId,"Science")
+                }
 
 
             }
@@ -89,8 +102,12 @@ class TestViewModel: ViewModel() {
     fun fetchAnomaly(){
         viewModelScope.launch{
             try{
-                Log.d("Anomaly Request", anomalyRequest().toString())
-                _Objects.value=RetrofitObject.api.postAnomaly(anomalyRequest())
+
+               val result =RetrofitObject.api.postAnomaly(anomalyRequest())
+                 _Objects.value=result
+                result.forEach { obj->
+                    fetchImage(obj.objectId,"Science")
+                }
 
 
             }
@@ -134,16 +151,17 @@ class TestViewModel: ViewModel() {
                if (values[1].equals("Anomaly")){
                    fetchAnomaly()
                    _searchedType.value=type.Anomaly
-                   fetchImage(values[1],"Science")
+                 //  fetchImage(values[1],"Science")
                }
-              else{ fetchClasses(values[1].toString())
+              else{
+                  fetchClasses(values.drop(1).joinToString ( " " ))
                    _searchedType.value=type.Class
               }
            }
-                  //      values.size>=1 && values.
+                        //      values.size>=1 && values.
                 else-> {
                     fetchObject(values[0])
-                    fetchImage(values[0],"Science")
+                 //   fetchImage(values[0],"Science")
                     _searchedType.value= type.Object
                 }
                     }//when end
@@ -159,8 +177,8 @@ class TestViewModel: ViewModel() {
     }//function end
 
 
-    private val _bitmap= MutableStateFlow<Bitmap?>(null)
-    val bitmap: MutableStateFlow<Bitmap?> = _bitmap
+    private val _bitmap= MutableStateFlow<Map<String,Bitmap?>>(emptyMap())
+    val bitmap: MutableStateFlow<Map<String,Bitmap?>> = _bitmap
     fun fetchImage(objectId:String,type:String){
         viewModelScope.launch {
             try{
@@ -174,7 +192,9 @@ class TestViewModel: ViewModel() {
                 val asinhBitmap = applyAsinhFilter(smoothedBitmap)
 
                 val blueDarkBitmap =    mapGrayscaleToBlueGradient(asinhBitmap)
-                _bitmap.value = blueDarkBitmap
+                _bitmap.value = _bitmap.value.toMutableMap().apply{
+                    put(objectId,blueDarkBitmap)
+                }
 
 
                 //val input=re

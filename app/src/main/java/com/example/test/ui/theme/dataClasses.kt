@@ -48,7 +48,16 @@ data class objectResponse(
     val fid:Int,
 
     @SerializedName("i:magpsf")
-    val magnitudeDifference:Double
+    val magnitudeDifference:Double,
+
+    @SerializedName("i:distnr")
+    val ztf:Double,
+
+     @SerializedName("i:distpsnr1")
+    val psi:Double,
+
+    @SerializedName("i:neargaia")
+    val gaia:Double
 
 )
 {
@@ -95,10 +104,10 @@ data class conesearchResponse(
     val jd:Double,
 
 @SerializedName("i:jdstarthist")
-    val startDate:Double
+    val firstDate:Double
 ){
     val timeVariation:String
-        get()=(jd-startDate).toString()
+        get()=(jd-firstDate).toString()
 
     val equ: String get() = getEquString(ra, dec)
     val gal: Pair<Double, Double> get() = convertRaDecToGal(ra, dec)
@@ -120,7 +129,7 @@ data class classRequest(
 
 data class anomalyRequest(
 
-    val n:Int=10           //n=number of alerts
+    val n:Int=100          //n=number of alerts
 )
 
 data class imageRequest(

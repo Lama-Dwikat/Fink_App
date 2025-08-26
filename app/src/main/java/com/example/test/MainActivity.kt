@@ -7,6 +7,7 @@ import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -34,6 +36,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -47,9 +51,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
@@ -58,34 +64,62 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Popup
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.test.ui.theme.TestViewModel
 import com.example.test.ui.theme.type
-import kotlin.text.toFloatOrNull
-import kotlin.text.toIntOrNull
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import java.util.concurrent.TimeUnit
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.min
+import kotlin.math.roundToInt
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             val view: TestViewModel = viewModel()
-            searchBar(view)
-           // SkyMapScreen()
+            val navController = rememberNavController()
+
+            NavHost (
+                navController = navController,
+                startDestination = "search"
+            ){
+                composable("search"){
+                    searchBar(view,navController)
+                }
+
+                composable("newPage/{selectedObject}"){backStackEntry->
+                val selectedObject=backStackEntry.arguments?.getString("selectedObject") ?: ""
+                        objectPage(view,navController,selectedObject)
+                    }
+                }
+            }
 
 
         }
     }
-}
+
 
 
 
  @Composable
- fun searchBar(view:TestViewModel) {
+ fun searchBar(view:TestViewModel,navController: NavController) {
      val searchedValue by view.searchedValue.collectAsState()
     val classesNames by view.classesNames.collectAsState()
     var expandClass by remember { mutableStateOf(false) }
@@ -308,8 +342,8 @@ Row(horizontalArrangement = Arrangement.End ,  modifier=Modifier.fillMaxWidth()
                 showImage=false
                 view.processSearchValue()
                 if(iconStatus)
-                    secondResultView(view)
-           else     firstResultView( view)
+                    secondResultView(view,navController)
+           else     firstResultView( view,navController)
         }
 
 
@@ -354,7 +388,7 @@ Box(                     modifier = Modifier.border(60.dp, Color.Gray)){
 
 
 @Composable
-fun firstResultView(view: TestViewModel) {
+fun firstResultView(view: TestViewModel,navController:NavController) {
     val obj by view.Objects.collectAsState()
     val cone by view.Conesearch.collectAsState()
     val typ by view.searchedType.collectAsState()
@@ -413,65 +447,72 @@ fun firstResultView(view: TestViewModel) {
        }
 
   if(headers.isNotEmpty() && raws.isNotEmpty())
-    table(headers,raws)
+    table(headers,raws,navController)
 
     }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun table(headers:List<String> , raws:List<List<String>>) {
+fun table(headers:List<String> , raws:List<List<String>>,navController:NavController) {
+    var passedObject:String =" "
     Box(
-        modifier = Modifier.heightIn(max = 360.dp).width(330.dp).border(1.dp, Color(0xFFC9C9C9)) ,
-            contentAlignment = Alignment.TopCenter
+        modifier = Modifier.heightIn(max = 360.dp).width(330.dp).border(1.dp, Color(0xFFC9C9C9)),
+        contentAlignment = Alignment.TopCenter
     ) {
-        Column(modifier = Modifier.horizontalScroll(rememberScrollState())) {
 
-            Row {
-                headers.forEach { title ->
-                    Box(
-                        modifier = Modifier.border(
-                            1.dp, Color(0xFFC9C9C9)
-                        ).width(135.dp).height(30.dp)
-                            .background(Color(0xFFD3D3D3)), contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Log.d("headers values",title)
+
+
+        LazyColumn(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            stickyHeader {
+                Row {
+                    headers.forEach { title ->
+                        Box(
+                            modifier = Modifier.border(
+                                1.dp, Color(0xFFC9C9C9)
+                            ).width(135.dp).height(30.dp)
+                                .background(Color(0xFFD3D3D3)), contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Log.d("headers values", title)
+                        }
                     }
                 }
-
-
             }
 
-            raws.forEach { raw ->
+          items(raws){
+                raw ->
+
                 Row {
                     raw.forEachIndexed { index, value ->
+
                         Box(
                             modifier = Modifier
-                                //.border(1.dp, Color.Gray)
                                 .width(135.dp).height(30.dp)
                                 .background(Color.White)
-                                .then (if (index==0) Modifier.clickable{} else Modifier)
-                            , contentAlignment = Alignment.Center
+                                .then(if (index == 0) Modifier.clickable {
+                                    navController.navigate("newPage/$value");
+                                  } else Modifier),
+                            contentAlignment = Alignment.Center
 
 
                         ) {
-                            Text(text = value, fontSize = 11.sp, fontWeight = FontWeight.Bold, color= if (index==0) Color.Blue else Color.Black)
+                            Text(
+                                text = value,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (index == 0) Color.Blue else Color.Black
+                            )
                         }
                     }
 
-
                 }
-
+            }
             }
 
         }
 
 
     }
-}
-
-
-
-
 
 
 
@@ -698,48 +739,51 @@ fun searchHelpText(view:TestViewModel): Boolean {
 
 
 
+//
+//
+//@Composable
+//fun AladinLiteWebView() {
+//    AndroidView(factory = { context ->
+//        WebView(context).apply {
+//            settings.javaScriptEnabled = true
+//            webViewClient = WebViewClient()
+//            loadUrl("https://aladin.cds.unistra.fr/AladinLite/")
+//        }
+//    })
+//}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 @Composable
-fun AladinLiteWebView() {
-    AndroidView(factory = { context ->
-        WebView(context).apply {
-            settings.javaScriptEnabled = true
-            webViewClient = WebViewClient()
-            loadUrl("https://aladin.cds.unistra.fr/AladinLite/")
-        }
-    })
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@Composable
-fun SkyMapScreen() {
-    val ra = 270.925
-    val dec = -23.01
-    val fov = 1.5
+fun SkyMapScreen(ra:Double,dec: Double,fov:Double) {
+//    val ra = 270.925
+//    val dec = -23.01
+//    val fov = 1.5
+    val ra = ra
+    val dec = dec
+    val fov = fov
 
     val htmlContent = """
         <html>
@@ -784,7 +828,7 @@ fun SkyMapScreen() {
 
 
 @Composable
-fun secondResultView( view: TestViewModel) {
+fun secondResultView( view: TestViewModel,navController:NavController) {
     val cone by view.Conesearch.collectAsState()
     val obj by view.Objects.collectAsState()
     val typ by view.searchedType.collectAsState()
@@ -792,6 +836,7 @@ fun secondResultView( view: TestViewModel) {
 
 
     val verticalScrollState = rememberScrollState()
+   // var expanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -800,217 +845,1234 @@ fun secondResultView( view: TestViewModel) {
             .verticalScroll(verticalScrollState)
             .background(Color.White)
             .border(1.dp, Color.LightGray)
-    ) {
-        obj.forEachIndexed { index, value ->
+    )
 
-            var expanded by remember { mutableStateOf(false) }
+    {
+        if (typ == type.Coordinate) {
 
-            val objectId = value.objectId
+            cone.forEachIndexed { index, value ->
+                var expanded by remember { mutableStateOf(false) }
 
-
-            val points = obj.mapNotNull { valuesMap ->
-                val diffMag = valuesMap.magnitudeDifference.toFloat()
-                val calcJd = valuesMap.calculatedJd.toFloat()
-                val fid = valuesMap.fid
-
-                if (diffMag != null && calcJd != null && fid != null) {
-                    Triple(calcJd, diffMag, fid)
-                } else null
-            }
+                val objectId = value.objectId
 
 
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    //.padding(vertical = 8.dp)
-                    .border(1.dp, Color.LightGray)
-                    .padding(8.dp)
-            ) {
-                // Object ID
-                // Object ID
-                Text(
-                    text = objectId,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-
-                Row(
-                    verticalAlignment = Alignment.Top,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Image on the left
-                    Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .border(1.dp, Color.Gray)
-                    ) {
-                        img?.let { bitmap ->
-                            Image(
-                                bitmap = bitmap.asImageBitmap(),
-                                contentDescription = "Cutout Image",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    // ✅ Data on the right
-                    Column(modifier = Modifier.weight(1f)) {
-                        val measurements = value.numberOfMeasurments
-                        val lapseRaw = value.timeVariation
-                        val lapse = lapseRaw?.let { String.format("%.1f", it) } ?: lapseRaw
-
-                        Text(
-                            buildAnnotatedString {
-                                withStyle(style = SpanStyle(color = Color.Magenta)) {
-                                    append(measurements.toString())
-                                }
-                                append(" detection(s) in ")
-                                withStyle(style = SpanStyle(color = Color.Magenta)) {
-                                    append(lapse.toString())
-                                }
-                                append(" days")
-                            },
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-
-                        // First alert
-                        Row {
-                            Text("First: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                            Text(value.firstDate, fontSize = 10.sp, color = Color.Magenta)
-                        }
-
-                        // Last alert
-                        Row {
-                            Text("Last: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                            Text(value.lastDate, fontSize = 10.sp, color = Color.Magenta)
-                        }
-
-                        // Equatorial coordinates
-                        Row {
-                            Text("Equ: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                            Text(value.equ, fontSize = 10.sp, color = Color.Magenta)
-                        }
-
-                        // Galactic coordinates
-                        val galacticRaw = value.gal
-                        val galacticFormatted = galacticRaw.toString()
-                            .replace("(", "")
-                            .replace(")", "")
-                            .split(",")
-                            .map { it.trim() }
-                            .mapNotNull { part ->
-                                part.toDoubleOrNull()?.let { String.format("%.4f", it) }
-                            }
-                            .take(2)
-                            .joinToString(" ")
-
-                        Row {
-                            Text("Gal: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                            Text(
-                                if (galacticFormatted.isNotEmpty()) galacticFormatted else galacticRaw.toString(),
-                                fontSize = 10.sp,
-                                color = Color.Magenta
-                            )
-                        }
-
-                        // RealBogus score
-                        Row {
-                            Text("RealBogus: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                            Text(
-                                value.RealBogus.toString(),
-                                fontSize = 10.sp,
-                                color = Color.Magenta
-                            )
-                        }
-                    }
+                val points = obj.mapNotNull { valuesMap ->
+                    val diffMag = valuesMap.magnitudeDifference?.toFloat()
+                    val calcJd = valuesMap.calculatedJd
+                    val fid = valuesMap.fid
+                    if (diffMag != null && calcJd != null && fid != null) {
+                        val jdAsDate = jdToDateString(calcJd) // convert JD → "yyyy-MM-dd HH:mm:ss"
+                        Triple(jdAsDate, diffMag, fid)
+                    } else null
                 }
 
 
-                // ✅ Only toggle the plot
-                Text(
-                    text = if (expanded) "See Less" else "See More",
-                    color = Color.Blue,
-                    fontSize = 10.sp,
+                Column(
                     modifier = Modifier
-                        .padding(top = 6.dp)
-                        .clickable { expanded = !expanded }
-                )
+                        .fillMaxWidth()
+                        .border(1.dp, Color.LightGray)
+                        .padding(8.dp)
+                ) {
+                    // Object ID
+                    Text(
+                        text = objectId,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 4.dp).clickable{navController.navigate("newPage/$objectId")}
+                    )
 
-                if (expanded) {
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    LightCurvePlot(
-                        points = points,
+                    Row(
+                        verticalAlignment = Alignment.Top,
                         modifier = Modifier.fillMaxWidth()
+                    )
+                    {
+                        //   Image on the left
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .border(1.dp, Color.Gray)
+                        ) {
+                            img[objectId]?.let { bitmap ->
+                                Image(
+                                    bitmap = bitmap.asImageBitmap(),
+                                    contentDescription = "Cutout Image",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        // ✅ Data on the right
+                        Column(modifier = Modifier.weight(1f)) {
+                            val measurements = value.numberOfMeasurments
+                            val lapseRaw = value.timeVariation
+                            val lapse="%.1f".format(lapseRaw.toDouble())
+
+
+
+                            Text(
+                                buildAnnotatedString {
+                                    withStyle(style = SpanStyle(color = Color.Magenta)) {
+                                        append(measurements.toString())
+                                    }
+                                    append(" detection(s) in ")
+                                    withStyle(style = SpanStyle(color = Color.Magenta)) {
+                                        append(lapse)
+                                    }
+                                    append(" days")
+                                },
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+
+                            // First alert
+                            Row {
+                                Text("First: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                Text(value.firstDate.toString(), fontSize = 10.sp, color = Color.Magenta)
+                            }
+
+                            // Last alert
+                            Row {
+                                Text("Last: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                Text(value.jd.toString(), fontSize = 10.sp, color = Color.Magenta)
+                            }
+
+                            // Equatorial coordinates
+                            Row {
+                                Text("Equ: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                Text(value.equ, fontSize = 10.sp, color = Color.Magenta)
+                            }
+
+                            // Galactic coordinates
+                            val galacticRaw = value.gal
+                            val galacticFormatted = galacticRaw.toString()
+                                .replace("(", "")
+                                .replace(")", "")
+                                .split(",")
+                                .map { it.trim() }
+                                .mapNotNull { part ->
+                                    part.toDoubleOrNull()?.let { String.format("%.4f", it) }
+                                }
+                                .take(2)
+                                .joinToString(" ")
+
+                            Row {
+                                Text("Gal: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                Text(
+                                    if (galacticFormatted.isNotEmpty()) galacticFormatted else galacticRaw.toString(),
+                                    fontSize = 10.sp,
+                                    color = Color.Magenta
+                                )
+                            }
+
+                        }
+                    }
+
+
+                    // ✅ Only toggle the plot
+                    Text(
+                        text = if (expanded) "See Less" else "See More",
+                        color = Color.Blue,
+                        fontSize = 10.sp,
+                        modifier = Modifier
+                            .padding(top = 6.dp)
+                            .clickable { expanded = !expanded }
                     )
 
 
+
+                    if (expanded) {
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        val numberOfPoints = points.size
+                        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                        val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+
+                        val allDistinctDates = points.map {
+                            dateFormat.format(inputFormat.parse(it.first)!!)
+                        }.distinct().sorted()
+
+                        // Slider state range (0..N)
+                        var zoomRange by remember { mutableStateOf(0f..allDistinctDates.lastIndex.toFloat()) }
+
+                        val currentStartIndex = zoomRange.start.roundToInt().coerceIn(0, allDistinctDates.lastIndex)
+                        val currentEndIndex = zoomRange.endInclusive.roundToInt().coerceIn(0, allDistinctDates.lastIndex)
+
+                        val visibleDates = allDistinctDates.slice(currentStartIndex..currentEndIndex)
+
+                        val filteredPoints = points.filter { point ->
+                            val date = dateFormat.format(inputFormat.parse(point.first)!!)
+                            date in visibleDates
+                        }
+
+                        val isSingleDateSelected = currentStartIndex == currentEndIndex
+
+                        // ✅ Same call as Code 1
+//                        LightCurvePlot(
+//                            //number = numberOfPoints,
+//                            points = filteredPoints,
+//                            isSingleDateSelected = isSingleDateSelected,
+//                            selectedDate = if (isSingleDateSelected) visibleDates.first() else null,
+//                            modifier = Modifier
+//                                .fillMaxWidth()
+//                                .height(200.dp)
+//                        )
+                      LightCurvePlot(
+                            number = numberOfPoints,
+                            points = filteredPoints,
+                            isSingleDateSelected = isSingleDateSelected, // UPDATED: pass flag
+                            selectedDate = if (isSingleDateSelected) visibleDates.first() else null, // UPDATED: pass date if single
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                        )
+
+                        Column {
+                            RangeSlider(
+                                value = zoomRange,
+                                onValueChange = { newRange -> zoomRange = newRange },
+                                valueRange = 0f..allDistinctDates.lastIndex.toFloat(),
+                                steps = min(20, allDistinctDates.size - 2),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp)
+                            )
+
+                            // X-axis label row
+                            val inputDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                            val outputDateFormat = SimpleDateFormat("dd-MM", Locale.US)
+
+                            if (!isSingleDateSelected) {
+                                val labelCount = min(20, allDistinctDates.size)
+                                val totalDates = allDistinctDates.size
+
+                                val labelIndices = List(labelCount) { i ->
+                                    val fraction = i.toFloat() / (labelCount - 1).coerceAtLeast(1)
+                                    (fraction * (totalDates - 1)).roundToInt()
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    labelIndices.forEach { index ->
+                                        val dateStr = allDistinctDates.getOrNull(index)
+                                        val date = dateStr?.let { inputDateFormat.parse(it) }
+                                        val formatted = if (date != null) outputDateFormat.format(date) else ""
+
+                                        Text(
+                                            text = formatted,
+                                            fontSize = 10.sp,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            modifier = Modifier.width(30.dp),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                }
+            }
+
+        } else if (typ == type.Object || typ == type.Anomaly || typ == type.Class) {
+
+                obj.forEachIndexed { index, value ->
+                   var expanded by remember { mutableStateOf(false) }
+
+                    val objectId = value.objectId
+
+
+
+                    val points = obj.mapNotNull { valuesMap ->
+                        val diffMag = valuesMap.magnitudeDifference?.toFloat()
+                        val calcJd = valuesMap.calculatedJd
+                        val fid = valuesMap.fid
+                        if (diffMag != null && calcJd != null && fid != null) {
+                            val jdAsDate = jdToDateString(calcJd) // convert JD → "yyyy-MM-dd HH:mm:ss"
+                            Triple(jdAsDate, diffMag, fid)
+                        } else null
+                    }
+
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            //.padding(vertical = 8.dp)
+                            .border(1.dp, Color.LightGray)
+                            .padding(8.dp)
+                    ) {
+                        // Object ID
+                        Text(
+                            text = objectId,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 4.dp).clickable{navController.navigate("newPage/$objectId")}
+                        )
+
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            // Image on the left
+                            Box(
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .border(1.dp, Color.Gray)
+                            ) {
+                                img[objectId]?.let { bitmap ->
+                                    Image(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        contentDescription = "Cutout Image",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            // ✅ Data on the right
+                            Column(modifier = Modifier.weight(1f)) {
+                                val measurements = value.numberOfMeasurments
+                                val lapseRaw = value.timeVariation
+                                val lapse = lapseRaw?.let { String.format("%.1f", it) } ?: lapseRaw
+
+                                Text(
+                                    buildAnnotatedString {
+                                        withStyle(style = SpanStyle(color = Color.Magenta)) {
+                                            append(measurements.toString())
+                                        }
+                                        append(" detection(s) in ")
+                                        withStyle(style = SpanStyle(color = Color.Magenta)) {
+                                            append(lapse.toString())
+                                        }
+                                        append(" days")
+                                    },
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(bottom = 4.dp)
+                                )
+
+                                // First alert
+                                Row {
+                                    Text("First: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                    Text(value.firstDate, fontSize = 10.sp, color = Color.Magenta)
+                                }
+
+                                // Last alert
+                                Row {
+                                    Text("Last: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                    Text(value.lastDate, fontSize = 10.sp, color = Color.Magenta)
+                                }
+
+                                // Equatorial coordinates
+                                Row {
+                                    Text("Equ: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                    Text(value.equ, fontSize = 10.sp, color = Color.Magenta)
+                                }
+
+                                // Galactic coordinates
+                                val galacticRaw = value.gal
+                                val galacticFormatted = galacticRaw.toString()
+                                    .replace("(", "")
+                                    .replace(")", "")
+                                    .split(",")
+                                    .map { it.trim() }
+                                    .mapNotNull { part ->
+                                        part.toDoubleOrNull()?.let { String.format("%.4f", it) }
+                                    }
+                                    .take(2)
+                                    .joinToString(" ")
+
+                                Row {
+                                    Text("Gal: ", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                    Text(
+                                        if (galacticFormatted.isNotEmpty()) galacticFormatted else galacticRaw.toString(),
+                                        fontSize = 10.sp,
+                                        color = Color.Magenta
+                                    )
+                                }
+
+                                // RealBogus score
+                                Row {
+                                    Text(
+                                        "RealBogus: ",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.sp
+                                    )
+                                    Text(
+                                        value.RealBogus.toString(),
+                                        fontSize = 10.sp,
+                                        color = Color.Magenta
+                                    )
+                                }
+                            }
+                        }
+
+
+                        // ✅ Only toggle the plot
+                        Text(
+                            text = if (expanded) "See Less" else "See More",
+                            color = Color.Blue,
+                            fontSize = 10.sp,
+                            modifier = Modifier
+                                .padding(top = 6.dp)
+                                .clickable { expanded = !expanded }
+                        )
+
+
+                        if (expanded) {
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                           val numberOfPoints = points.size
+                            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                            val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+
+                            val allDistinctDates = points.map {
+                                dateFormat.format(inputFormat.parse(it.first)!!)
+                            }.distinct().sorted()
+
+                            // Slider state range (0..N)
+                            var zoomRange by remember { mutableStateOf(0f..allDistinctDates.lastIndex.toFloat()) }
+
+                            val currentStartIndex = zoomRange.start.roundToInt().coerceIn(0, allDistinctDates.lastIndex)
+                            val currentEndIndex = zoomRange.endInclusive.roundToInt().coerceIn(0, allDistinctDates.lastIndex)
+
+                            val visibleDates = allDistinctDates.slice(currentStartIndex..currentEndIndex)
+
+                            val filteredPoints = points.filter { point ->
+                                val date = dateFormat.format(inputFormat.parse(point.first)!!)
+                                date in visibleDates
+                            }
+
+                            val isSingleDateSelected = currentStartIndex == currentEndIndex
+
+                            // ✅ Same call as Code 1
+//                            LightCurvePlot(
+//                              //  number = numberOfPoints,
+//                                points = filteredPoints,
+//                                isSingleDateSelected = isSingleDateSelected,
+//                                selectedDate = if (isSingleDateSelected) visibleDates.first() else null,
+//                                modifier = Modifier
+//                                    .fillMaxWidth()
+//                                    .height(200.dp)
+//                            )
+                            // Show filtered plot
+                            LightCurvePlot(
+                                number = numberOfPoints,
+                                points = filteredPoints,
+                                isSingleDateSelected = isSingleDateSelected, // UPDATED: pass flag
+                                selectedDate = if (isSingleDateSelected) visibleDates.first() else null, // UPDATED: pass date if single
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                            )
+                            Column {
+                                RangeSlider(
+                                    value = zoomRange,
+                                    onValueChange = { newRange -> zoomRange = newRange },
+                                    valueRange = 0f..allDistinctDates.lastIndex.toFloat(),
+                                    steps = min(20, allDistinctDates.size - 2),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp)
+                                )
+
+                                // X-axis label row
+                                val inputDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                                val outputDateFormat = SimpleDateFormat("dd-MM", Locale.US)
+
+                                if (!isSingleDateSelected) {
+                                    val labelCount = min(20, allDistinctDates.size)
+                                    val totalDates = allDistinctDates.size
+
+                                    val labelIndices = List(labelCount) { i ->
+                                        val fraction = i.toFloat() / (labelCount - 1).coerceAtLeast(1)
+                                        (fraction * (totalDates - 1)).roundToInt()
+                                    }
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        labelIndices.forEach { index ->
+                                            val dateStr = allDistinctDates.getOrNull(index)
+                                            val date = dateStr?.let { inputDateFormat.parse(it) }
+                                            val formatted = if (date != null) outputDateFormat.format(date) else ""
+
+                                            Text(
+                                                text = formatted,
+                                                fontSize = 10.sp,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                modifier = Modifier.width(30.dp),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                    }
                 }
             }
         }
     }
 
 
-}
+
+
+//@Composable
+//fun LightCurvePlot(
+//    points: List<Triple<String, Float, Int>>,  // date string, y-value, fid
+//    isSingleDateSelected: Boolean = false,
+//    selectedDate: String? = null,
+//    modifier: Modifier = Modifier
+//) {
+//    if (points.isEmpty()) {
+//        Text("No light curve data available", modifier = modifier.padding(8.dp))
+//        return
+//    }
+//
+//    val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+//    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+//    val displayDateFormat = SimpleDateFormat("dd-MM", Locale.US)
+//
+//    val sortedPoints = points.sortedBy { it.first }
+//
+//    val leftPadding = 60f
+//    val bottomPadding = 30f
+//    val topPadding = 10f
+//    val rightPadding = 20f
+//
+//    Canvas(
+//        modifier = modifier
+//            .height(200.dp)
+//            .background(Color(0xFFD3D3D3))
+//            .padding(8.dp)
+//    ) {
+//        val canvasWidth = size.width
+//        val canvasHeight = size.height
+//        val plotWidth = canvasWidth - leftPadding - rightPadding
+//        val plotHeight = canvasHeight - topPadding - bottomPadding
+//
+//        if (!isSingleDateSelected) {
+//            // Multi-date: x-axis = days
+//            val dates = sortedPoints.map { dateFormat.parse(it.first.substring(0, 10))!! }
+//            val minDate = dates.minOrNull()!!
+//            val maxDate = dates.maxOrNull()!!
+//            val totalMillis = maxDate.time - minDate.time
+//
+//            // X-axis labels every 2 days
+//            val daysCount = TimeUnit.MILLISECONDS.toDays(totalMillis).toInt()
+//            val step = 2
+//            val xLabels = (0..daysCount step step).map {
+//                val cal = Calendar.getInstance()
+//                cal.time = minDate
+//                cal.add(Calendar.DAY_OF_MONTH, it)
+//                displayDateFormat.format(cal.time)
+//            }
+//
+//            val labelCount = xLabels.size
+//            for ((i, label) in xLabels.withIndex()) {
+//                val xPos = leftPadding + (i.toFloat() / (labelCount - 1).coerceAtLeast(1)) * plotWidth
+//                drawLine(
+//                    color = Color(0xFF909090),
+//                    start = Offset(xPos, topPadding),
+//                    end = Offset(xPos, canvasHeight - bottomPadding),
+//                    strokeWidth = 1f
+//                )
+//                drawLine(
+//                    color = Color.Black,
+//                    start = Offset(xPos, canvasHeight - bottomPadding),
+//                    end = Offset(xPos, canvasHeight - bottomPadding + 5f),
+//                    strokeWidth = 1f
+//                )
+//                drawContext.canvas.nativeCanvas.drawText(
+//                    label,
+//                    xPos - 20f,
+//                    canvasHeight,
+//                    android.graphics.Paint().apply {
+//                        color = android.graphics.Color.BLACK
+//                        textSize = 15f
+//                        textAlign = android.graphics.Paint.Align.LEFT
+//                    }
+//                )
+//            }
+//
+//            // Y-axis scaling
+//            val yValues = sortedPoints.map { it.second }
+//            val minYRaw = yValues.minOrNull() ?: 0f
+//            val maxYRaw = yValues.maxOrNull() ?: 1f
+//            val yStep = 1f
+//            val minY = floor(minYRaw / yStep) * yStep
+//            val maxY = ceil(maxYRaw / yStep) * yStep
+//
+//            // Draw points
+//            sortedPoints.forEach { (dateStr, yVal, fid) ->
+//                val pointDate = inputFormat.parse(dateStr) ?: return@forEach
+//                val daysFromStart = TimeUnit.MILLISECONDS.toDays(pointDate.time - minDate.time).toFloat()
+//                val totalDays = TimeUnit.MILLISECONDS.toDays(totalMillis).toFloat()
+//                val x = leftPadding + (daysFromStart / totalDays) * plotWidth
+//                val yRatio = (yVal - minY) / (maxY - minY)
+//                val y = topPadding + plotHeight * (1f - yRatio)
+//
+//                val pointColor = when (fid) {
+//                    1 -> Color(0xFF1D1B70)
+//                    2 -> Color(0xFFFF7F50)
+//                    else -> Color.Gray
+//                }
+//
+//                drawCircle(color = pointColor, radius = 5f, center = Offset(x, y))
+//
+//                // Optional vertical lines
+//                val maxLineLength = 35f
+//                val minLineLength = 3f
+//                val fraction = (sortedPoints.size - sortedPoints.size).toFloat() / sortedPoints.size.toFloat()
+//                val lineLength = (minLineLength + fraction * (maxLineLength - minLineLength)).coerceIn(minLineLength, maxLineLength)
+//                drawLine(color = pointColor, start = Offset(x, y - 5f), end = Offset(x, y - 5f - lineLength), strokeWidth = 1.5f)
+//                drawLine(color = pointColor, start = Offset(x, y + 5f), end = Offset(x, y + 5f + lineLength), strokeWidth = 1.5f)
+//            }
+//
+//            // Y-axis labels
+//            val yLabels = generateSequence(maxY) { prev ->
+//                val next = prev - yStep
+//                if (next >= minY) next else null
+//            }.toList()
+//
+//            val yTickCount = yLabels.size - 1
+//            for ((i, yVal) in yLabels.withIndex()) {
+//                val yPos = topPadding + plotHeight * (1f - i.toFloat() / yTickCount)
+//                drawLine(color = Color(0xFF909090), start = Offset(leftPadding, yPos), end = Offset(canvasWidth - rightPadding, yPos), strokeWidth = 1f)
+//                drawLine(color = Color.Black, start = Offset(leftPadding - 5f, yPos), end = Offset(leftPadding, yPos), strokeWidth = 1f)
+//                drawContext.canvas.nativeCanvas.drawText(
+//                    String.format("%.1f", yVal),
+//                    0f,
+//                    yPos + 8f,
+//                    android.graphics.Paint().apply {
+//                        color = android.graphics.Color.BLACK
+//                        textSize = 24f
+//                        textAlign = android.graphics.Paint.Align.LEFT
+//                    }
+//                )
+//            }
+//
+//        } else {
+//            // Single date: x-axis = hours
+//            val selectedDateObj = selectedDate?.let { dateFormat.parse(it) } ?: return@Canvas
+//            val calendar = Calendar.getInstance()
+//            calendar.time = selectedDateObj
+//            val pointsOnDate = sortedPoints.filter { dateFormat.format(inputFormat.parse(it.first)!!) == selectedDate }
+//
+//            if (pointsOnDate.isEmpty()) return@Canvas
+//
+//            val hours = pointsOnDate.map {
+//                val cal = Calendar.getInstance()
+//                cal.time = inputFormat.parse(it.first)!!
+//                cal.get(Calendar.HOUR_OF_DAY)
+//            }
+//
+//            val minHour = (hours.minOrNull() ?: 0).coerceAtLeast(0)
+//            val maxHour = (hours.maxOrNull() ?: 23).coerceAtMost(23)
+//            val startHour = (minHour - 1).coerceAtLeast(0)
+//            val endHour = (maxHour + 1).coerceAtMost(23)
+//
+//            val hourLabels = (startHour..endHour).toList()
+//            val labelCount = hourLabels.size
+//
+//            // Draw vertical gridlines & hour labels
+//            for ((i, hour) in hourLabels.withIndex()) {
+//                val xPos = leftPadding + (i.toFloat() / (labelCount - 1).coerceAtLeast(1)) * plotWidth
+//                drawLine(color = Color(0xFF909090), start = Offset(xPos, topPadding), end = Offset(xPos, canvasHeight - bottomPadding), strokeWidth = 1f)
+//                drawLine(color = Color.Black, start = Offset(xPos, canvasHeight - bottomPadding), end = Offset(xPos, canvasHeight - bottomPadding + 5f), strokeWidth = 1f)
+//                drawContext.canvas.nativeCanvas.drawText(
+//                    "%02d:00".format(hour),
+//                    xPos - 20f,
+//                    canvasHeight,
+//                    android.graphics.Paint().apply { color = android.graphics.Color.BLACK; textSize = 15f; textAlign = android.graphics.Paint.Align.LEFT }
+//                )
+//            }
+//
+//            val yValues = pointsOnDate.map { it.second }
+//            val minYRaw = yValues.minOrNull() ?: 0f
+//            val maxYRaw = yValues.maxOrNull() ?: 1f
+//            val yStep = 0.1f
+//            val minY = floor(minYRaw / yStep) * yStep
+//            val maxY = ceil(maxYRaw / yStep) * yStep
+//
+//            val yLabels = generateSequence(minY) { prev ->
+//                val next = prev + yStep
+//                if (next <= maxY) next else null
+//            }.toList()
+//
+//            val yTickCount = yLabels.size - 1
+//            for ((i, yVal) in yLabels.withIndex()) {
+//                val yPos = topPadding + plotHeight * (1f - i.toFloat() / yTickCount)
+//                drawLine(color = Color(0xFF909090), start = Offset(leftPadding, yPos), end = Offset(canvasWidth - rightPadding, yPos), strokeWidth = 1f)
+//                drawLine(color = Color.Black, start = Offset(leftPadding - 5f, yPos), end = Offset(leftPadding, yPos), strokeWidth = 1f)
+//                drawContext.canvas.nativeCanvas.drawText(
+//                    String.format("%.2f", yVal),
+//                    0f,
+//                    yPos + 8f,
+//                    android.graphics.Paint().apply { color = android.graphics.Color.BLACK; textSize = 24f; textAlign = android.graphics.Paint.Align.LEFT }
+//                )
+//            }
+//
+//            // Draw points
+//            pointsOnDate.forEach { (dateStr, yVal, fid) ->
+//                val cal = Calendar.getInstance()
+//                cal.time = inputFormat.parse(dateStr)!!
+//                val hour = cal.get(Calendar.HOUR_OF_DAY)
+//                val xRatio = (hour - startHour).toFloat() / (endHour - startHour).toFloat()
+//                val x = leftPadding + xRatio * plotWidth
+//
+//                val yRatio = (yVal - minY) / (maxY - minY)
+//                val y = topPadding + plotHeight * (1f - yRatio)
+//
+//                val pointColor = when (fid) {
+//                    1 -> Color(0xFF1D1B70)
+//                    2 -> Color(0xFFFF7F50)
+//                    else -> Color.Gray
+//                }
+//                drawCircle(color = pointColor, radius = 5f, center = Offset(x, y))
+//            }
+//        }
+//    }
+//}
+
+
 @Composable
-fun LightCurvePlot(
-    points: List<Triple<Float, Float, Int>>,  // x, y, fid
-    modifier: Modifier = Modifier
+fun LightCurvePlot(number:Int,
+                   points: List<Triple<String, Float, Int>>,
+                   isSingleDateSelected: Boolean = false, // UPDATED: new param to know axis type
+                   selectedDate: String? = null,         // UPDATED: pass selected date if single
+                   modifier: Modifier = Modifier
 ) {
     if (points.isEmpty()) {
         Text("No light curve data available", modifier = modifier.padding(8.dp))
         return
     }
 
-    val sortedPoints = points.sortedBy { it.first } // sort by JD (x-axis)
+    val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    val displayDateFormat = SimpleDateFormat("dd-MM", Locale.US)
 
-    val minX = sortedPoints.minOf { it.first }
-    val maxX = sortedPoints.maxOf { it.first }
-    val minY = sortedPoints.minOf { it.second }
-    val maxY = sortedPoints.maxOf { it.second }
+    val sortedPoints = points.sortedBy { it.first }
 
-    Canvas(modifier = modifier
-        .height(180.dp)
-        .background(Color(0xFFD3D3D3))
+    val leftPadding = 60f
+    val bottomPadding = 30f
+    val topPadding = 10f
+    val rightPadding = 20f
+
+    Canvas(
+        modifier = modifier
+            .height(200.dp)
+            .background(Color(0xFFD3D3D3))
+            .padding(8.dp)
     ) {
         val canvasWidth = size.width
         val canvasHeight = size.height
-        val leftPadding = 60f
-        val bottomPadding = 30f
-        val topPadding = 15f
 
-        // Draw axes, gridlines (same as before)...
+        val plotWidth = canvasWidth - leftPadding - rightPadding
+        val plotHeight = canvasHeight - topPadding - bottomPadding
 
-        // Draw points with color by fid
-        sortedPoints.forEach { (xVal, yVal, fid) ->
-            val x = leftPadding + (xVal - minX) / (maxX - minX) * (canvasWidth - leftPadding - 10f)
-            val y = topPadding + (yVal - minY) / (maxY - minY) * (canvasHeight - topPadding - bottomPadding)
+        if (!isSingleDateSelected) {
+            // Multiple dates - x axis = days (existing code)
 
-            val pointColor = when (fid) {
-                1 -> Color(0xFF1D1B70) // blue
-                2 -> Color(0xFFFF7F50) // orange
-                else -> Color.Gray
+            // Calculate date range from points (dates only)
+            val dates = sortedPoints.map { dateFormat.parse(it.first.substring(0, 10))!! }
+            val minDate = dates.minOrNull()!!
+            val maxDate = dates.maxOrNull()!!
+
+            val calendar = Calendar.getInstance()
+            calendar.time = minDate
+            calendar.add(Calendar.DAY_OF_MONTH, -2)
+            val plotStartMillis = calendar.timeInMillis
+
+            calendar.time = maxDate
+            calendar.add(Calendar.DAY_OF_MONTH, 2)
+            val plotEndMillis = calendar.timeInMillis
+
+            val totalRangeMillis = plotEndMillis - plotStartMillis
+
+            // X-axis labels every 2 days
+            val daysCount = TimeUnit.MILLISECONDS.toDays(totalRangeMillis).toInt()
+            val step = 2
+            val xLabels = (0..daysCount step step).map {
+                val cal = Calendar.getInstance()
+                cal.timeInMillis = plotStartMillis
+                cal.add(Calendar.DAY_OF_MONTH, it)
+                displayDateFormat.format(cal.time)
             }
 
-            drawCircle(
-                color = pointColor,
-                center = Offset(x, y),
-                radius = 6f
-            )
+            val labelCount = xLabels.size
+            for (i in xLabels.indices) {
+                val xPos = leftPadding + (i.toFloat() / (labelCount - 1).coerceAtLeast(1)) * plotWidth
+
+                drawLine(
+                    color = Color(0xFF909090),
+                    start = Offset(xPos, topPadding),
+                    end = Offset(xPos, canvasHeight - bottomPadding),
+                    strokeWidth = 1f
+                )
+                drawLine(
+                    color = Color.Black,
+                    start = Offset(xPos, canvasHeight - bottomPadding),
+                    end = Offset(xPos, canvasHeight - bottomPadding + 5f),
+                    strokeWidth = 1f
+                )
+                drawContext.canvas.nativeCanvas.drawText(
+                    xLabels[i],
+                    xPos - 20f,
+                    canvasHeight,
+                    android.graphics.Paint().apply {
+                        color = android.graphics.Color.BLACK
+                        textSize = 15f
+                        textAlign = android.graphics.Paint.Align.LEFT
+                    }
+                )
+            }
+
+
+
+            //  currentPointsCount = sortedPoints.size
+            // Inside multi-date branch - inside sortedPoints.forEach:
+            Log.d(" srot points",sortedPoints.size.toString())
+            Log.d(" full points",number.toString())
+
+
+
+            sortedPoints.forEach { (dateStr, yVal, fid) ->
+                val pointDate = inputFormat.parse(dateStr) ?: return@forEach
+
+                val daysFromStart = TimeUnit.MILLISECONDS.toDays(pointDate.time - plotStartMillis).toFloat()
+                val totalDays = TimeUnit.MILLISECONDS.toDays(totalRangeMillis).toFloat()
+                val xRatio = daysFromStart / totalDays
+                val x = leftPadding + xRatio * plotWidth
+
+                val yValues = sortedPoints.map { it.second }
+                val minYRaw = yValues.minOrNull() ?: 0f
+                val maxYRaw = yValues.maxOrNull() ?: 1f
+                val yStep = 1f
+                val minY = floor(minYRaw / yStep) * yStep
+                val maxY = ceil(maxYRaw / yStep) * yStep
+                val yRatio = (yVal - minY) / (maxY - minY)
+                val y = topPadding + plotHeight * yRatio
+
+                val pointColor = when (fid) {
+                    1 -> Color(0xFF1D1B70)
+                    2 -> Color(0xFFFF7F50)
+                    else -> Color.Gray
+                }
+
+                drawCircle(
+                    color = pointColor,
+                    radius = 5f,
+                    center = Offset(x, y)
+                )
+
+                // Calculate line length based on number of points vs total number
+                if (sortedPoints.size < number) {
+                    val maxLineLength = 35f
+                    val minLineLength = 3f
+                    // More points → shorter lines, fewer points → longer lines
+                    val fraction = (number - sortedPoints.size).toFloat() / number.toFloat()
+                    val lineLength = (minLineLength + fraction * (maxLineLength - minLineLength)).coerceIn(minLineLength, maxLineLength)
+
+                    drawLine(
+                        color = pointColor,
+                        start = Offset(x, y - 5f),
+                        end = Offset(x, y - 5f - lineLength),
+                        strokeWidth = 1.5f
+                    )
+                    drawLine(
+                        color = pointColor,
+                        start = Offset(x, y + 5f),
+                        end = Offset(x, y + 5f + lineLength),
+                        strokeWidth = 1.5f
+                    )
+                }
+            }
+
+            // Y-axis labels (same as before)
+            val yValues = sortedPoints.map { it.second }
+            val minYRaw = yValues.minOrNull() ?: 0f
+            val maxYRaw = yValues.maxOrNull() ?: 1f
+
+            val yStep = 1f
+            val minY = floor(minYRaw / yStep) * yStep
+            val maxY = ceil(maxYRaw / yStep) * yStep
+
+            val yLabels = generateSequence(maxY) { it - yStep }
+                .takeWhile { it >= minY }
+                .toList()
+
+            val yTickCount = yLabels.size - 1
+            for ((i, yVal) in yLabels.withIndex()) {
+                val yPos = topPadding + plotHeight * (1f - i.toFloat() / yTickCount)
+
+                drawLine(
+                    color = Color(0xFF909090),
+                    start = Offset(leftPadding, yPos),
+                    end = Offset(canvasWidth - rightPadding, yPos),
+                    strokeWidth = 1f
+                )
+                drawLine(
+                    color = Color.Black,
+                    start = Offset(leftPadding - 5f, yPos),
+                    end = Offset(leftPadding, yPos),
+                    strokeWidth = 1f
+                )
+                drawContext.canvas.nativeCanvas.drawText(
+                    String.format("%.1f", yVal),
+                    0f,
+                    yPos + 8f,
+                    android.graphics.Paint().apply {
+                        color = android.graphics.Color.BLACK
+                        textSize = 24f
+                        textAlign = android.graphics.Paint.Align.LEFT
+                    }
+                )
+            }
+
+
+
         }
 
-        // Draw axis labels (same as before)...
+
+
+        else {
+
+            val selectedDateObj = selectedDate?.let { dateFormat.parse(it) }
+            if (selectedDateObj == null) return@Canvas
+
+            val calendar = Calendar.getInstance()
+            calendar.time = selectedDateObj
+
+// Filter points strictly on the selected date
+            val pointsOnDate = sortedPoints.filter { (dateStr, _, _) ->
+                val pointDate = inputFormat.parse(dateStr) ?: return@filter false
+                dateFormat.format(pointDate) == selectedDate
+            }
+
+            if (pointsOnDate.isEmpty()) return@Canvas
+
+// Extract hours from points on selected date
+            val hours = pointsOnDate.map {
+                val pointDate = inputFormat.parse(it.first)!!
+                val cal = Calendar.getInstance()
+                cal.time = pointDate
+                cal.get(Calendar.HOUR_OF_DAY)
+            }
+
+// Determine min and max hour and extend by 1 hour before and after within 0..23
+            val minHour = (hours.minOrNull() ?: 0).coerceAtLeast(0)
+            val maxHour = (hours.maxOrNull() ?: 23).coerceAtMost(23)
+            val startHour = (minHour - 1).coerceAtLeast(0)
+            val endHour = (maxHour + 1).coerceAtMost(23)
+
+// Dynamic hour labels range
+            val hourLabels = (startHour..endHour).toList()
+            val labelCount = hourLabels.size
+
+// Calculate plot width and height
+            val plotWidth = canvasWidth - leftPadding - rightPadding
+            val plotHeight = canvasHeight - topPadding - bottomPadding
+
+// Draw vertical grid lines and hour labels
+            for ((i, hour) in hourLabels.withIndex()) {
+                val xPos = leftPadding + (i.toFloat() / (labelCount - 1).coerceAtLeast(1)) * plotWidth
+
+                drawLine(
+                    color = Color(0xFF909090),
+                    start = Offset(xPos, topPadding),
+                    end = Offset(xPos, canvasHeight - bottomPadding),
+                    strokeWidth = 1f
+                )
+                drawLine(
+                    color = Color.Black,
+                    start = Offset(xPos, canvasHeight - bottomPadding),
+                    end = Offset(xPos, canvasHeight - bottomPadding + 5f),
+                    strokeWidth = 1f
+                )
+                drawContext.canvas.nativeCanvas.drawText(
+                    "%02d:00".format(hour),
+                    xPos - 20f,
+                    canvasHeight,
+                    android.graphics.Paint().apply {
+                        color = android.graphics.Color.BLACK
+                        textSize = 15f
+                        textAlign = android.graphics.Paint.Align.LEFT
+                    }
+                )
+            }
+
+// Y-axis labels - same as before
+            val yValues = pointsOnDate.map { it.second }
+            val minYRaw = yValues.minOrNull() ?: 0f
+            val maxYRaw = yValues.maxOrNull() ?: 1f
+
+
+
+
+            val yStep = 0.1f
+
+            val minY = floor(minYRaw / yStep) * yStep
+            val maxY = ceil(maxYRaw / yStep) * yStep
+
+// If minY and maxY are too close or equal, generate finer steps
+            val yLabels = if (maxY - minY < yStep) {
+                // create multiple labels with smaller step (e.g. 0.02) around minY
+                val smallStep = yStep / 5f // 0.02
+                val count = 6  // for example, 6 labels: minY, minY+0.02, ..., minY+0.1
+                (0 until count).map { minY + it * smallStep }
+            } else {
+                generateSequence(minY) { prev ->
+                    val next = prev + yStep
+                    if (next <= maxY) next else null
+                }.toList()
+            }
+
+            val yTickCount = yLabels.size - 1
+            for ((i, yVal) in yLabels.withIndex()) {
+                val yPos = topPadding + plotHeight * (1f - i.toFloat() / yTickCount)
+
+                drawLine(
+                    color = Color(0xFF909090),
+                    start = Offset(leftPadding, yPos),
+                    end = Offset(canvasWidth - rightPadding, yPos),
+                    strokeWidth = 1f
+                )
+                drawLine(
+                    color = Color.Black,
+                    start = Offset(leftPadding - 5f, yPos),
+                    end = Offset(leftPadding, yPos),
+                    strokeWidth = 1f
+                )
+                drawContext.canvas.nativeCanvas.drawText(
+                    String.format("%.2f", yVal), // two decimals for finer labels
+                    0f,
+                    yPos + 8f,
+                    android.graphics.Paint().apply {
+                        color = android.graphics.Color.BLACK
+                        textSize = 12f // smaller font for many labels
+                        textAlign = android.graphics.Paint.Align.LEFT
+                    }
+                )
+            }
+
+
+            pointsOnDate.forEach { (dateStr, yVal, fid) ->
+                val pointDate = inputFormat.parse(dateStr) ?: return@forEach
+                val pointCalendar = Calendar.getInstance()
+                pointCalendar.time = pointDate
+
+                val hour = pointCalendar.get(Calendar.HOUR_OF_DAY)
+                val minute = pointCalendar.get(Calendar.MINUTE)
+                val second = pointCalendar.get(Calendar.SECOND)
+
+                // Calculate fractional hour (e.g., 4 + 13/60 + 0/3600 = 4.2167)
+                val fractionalHour = hour + (minute / 60f) + (second / 3600f)
+
+                // Calculate x position relative to dynamic hour range using fractional hour
+                val xRatio = (fractionalHour - startHour) / (endHour - startHour).coerceAtLeast(1)
+                val x = leftPadding + xRatio * plotWidth
+
+                val yRatio = (yVal - minY) / (maxY - minY)
+                val y = topPadding + plotHeight * (1f - yRatio)
+
+                val pointColor = when (fid) {
+                    1 -> Color(0xFF1D1B70)
+                    2 -> Color(0xFFFF7F50)
+                    else -> Color.Gray
+                }
+
+//                drawCircle(
+//                    color = pointColor,
+//                    radius = 5f,
+//                    center = Offset(x, y)
+//                )
+                drawCircle(
+                    color = pointColor,
+                    radius = 5f,
+                    center = Offset(x, y)
+                )
+
+                // Calculate line length based on number of points vs total number
+                val lineLength = 45f
+                // More points → shorter lines, fewer points → longer lines
+
+
+                drawLine(
+                    color = pointColor,
+                    start = Offset(x, y - 5f),
+                    end = Offset(x, y - 5f - lineLength),
+                    strokeWidth = 1.5f
+                )
+                drawLine(
+                    color = pointColor,
+                    start = Offset(x, y + 5f),
+                    end = Offset(x, y + 5f + lineLength),
+                    strokeWidth = 1.5f
+                )
+
+            }
+
+
+        }
     }
 }
 
 
+@Composable
+fun objectPage(view: TestViewModel,navController:NavController,selectedObject:String){
+  //  Log.d("selected Object",selectedObject)
+    val obj by view.Objects.collectAsState()
+    var classis =listOf<String>()
+    var ztf:Double=10000.0
+    var classifications = mutableListOf<String>()
+    //val discoveryDate
+    val skyMap=true
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Image(
+            painter = painterResource(id = R.drawable.bg),
+            contentDescription = "Background Image",
+            modifier = Modifier.fillMaxSize()
+        )
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(top=20.dp)
+
+        ){
+
+
+            Box(modifier=Modifier.size(width=350.dp,height=200.dp).clip(RoundedCornerShape(40.dp))
+                .background(Color.White).border(1.dp,Color.Gray,RoundedCornerShape(40.dp))
+               .padding(20.dp)   ) {
+                Column {
+                    Row {
+                        Image(
+                            painter = painterResource(R.drawable.object_logo),
+                            contentDescription = "Logo at object's details page",
+                            modifier = Modifier.width(35.dp).height(35.dp)
+                        )
+                        Text(text = selectedObject, fontSize = 28.sp)
+                    }
+                    obj.forEach { value ->
+                        if (value.objectId.equals(selectedObject)) {
+                            classifications.add(value.classification)
+                            classis = classifications.distinct()
+                            if(value.ztf<ztf )
+                              ztf=value.ztf
+
+                        }
+                    }
+                    Row(modifier = Modifier.padding(top = 5.dp)) {
+                        classis.forEach { cl ->
+                            Box(
+                                modifier = Modifier.size(width = 120.dp, height = 20.dp)
+                                    .clip(RoundedCornerShape(40.dp))
+                                    .border(1.dp, Color.Gray, RoundedCornerShape(40.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Canvas(
+                                        modifier = Modifier.size(7.dp) // diameter of the circle
+                                    ) {
+                                        drawCircle(
+                                            color = colors(cl),           // circle color
+                                            radius = size.minDimension / 2
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(6.dp)) // space between circle and text
+
+                                    Text(
+                                        text = cl,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+
+
+                            }
+                        }
+                    }
+                    obj.forEach { value ->
+                        Box(
+                            modifier = Modifier.size(width = 120.dp, height = 20.dp)
+                                .clip(RoundedCornerShape(40.dp))
+                                .border(1.dp, Color.Gray, RoundedCornerShape(40.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                           // Log.d("object id , ztf",value.objectId+" , "+value.ztf.toString())
+                            Text(value.ztf.toString())
+                        }
+
+
+                    }
+                }
+            }
+
+
+            Spacer( Modifier.size(10.dp))
+           Box(modifier=Modifier.size(width=335.dp,height=300.dp)){
+            if(skyMap)
+                SkyMapScreen( 270.925, -23.01,1.5)
+        }
 
 
 
+
+
+        }
+
+
+}
+}
+
+
+fun colors(classification:String):Color {
+    when(classification){
+        "Early SN Ia candidate" -> return Color.Red
+        "SN candidate" ->return  Color(0xFFFFA500) //ORANGE
+        "Kilonova candidate" -> return Color.DarkGray
+        "Microlensing candidate" -> return Color(0xFF00FF00)  //LIME
+        "Tracklet" -> return Color(0xFF8A2BE2) //VIOLET
+        "Solar System MPC"->return Color.Yellow
+        "Solar System candidate" -> return Color(0xFF4B0082) // Indigo
+        "Ambiguous" -> return Color(0xFF6F2DA8) // Grape
+        "Unknown" -> return Color.Gray
+        "Simbad"-> return Color.Blue
+        else-> return Color.Black
+
+    }
+
+}
+
+fun jdToDateString(jd: Double): String {
+    val JD_UNIX_EPOCH = 2440587.5  // Julian Date of 1970-01-01 00:00:00 UTC
+    val millis = ((jd - JD_UNIX_EPOCH) * 86400000.0).toLong()
+    val date = Date(millis)
+    val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+    sdf.timeZone = TimeZone.getTimeZone("UTC")
+    return sdf.format(date)
+}

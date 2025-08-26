@@ -90,6 +90,10 @@ dependencies {
     implementation ("androidx.webkit:webkit:1.8.0")
 
 
+    // page navigation
+    implementation("androidx.navigation:navigation-compose:2.8.0")
+
+
 
 
 
